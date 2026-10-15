@@ -1,0 +1,66 @@
+.app-shell { min-height: 100vh; }
+.sidebar {
+  position: fixed; inset: 0 auto 0 0; z-index: 2; width: 248px; padding: 26px 18px;
+  display: flex; flex-direction: column; background: #fff; border-right: 1px solid var(--line);
+}
+.brand { display: flex; gap: 12px; align-items: center; padding: 4px 7px 38px; text-decoration: none; }
+.brand-copy, .user-card > span, .clinic-status > span:last-child { display: flex; flex-direction: column; gap: 3px; }
+.nav-caption { padding: 0 11px 12px; }
+.nav-list { display: grid; gap: 5px; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 11px; border: 0; border-radius: 10px; background: transparent; text-align: left; cursor: pointer; }
+.nav-icon { width: 18px; text-align: center; }
+.sidebar-bottom { margin-top: auto; }
+.clinic-status { display: flex; align-items: center; gap: 10px; padding: 13px 11px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+.status-dot { display: inline-block; width: 8px; height: 8px; flex: none; border-radius: 50%; background: #66a77a; }
+.user-card { display: flex; align-items: center; gap: 10px; padding: 11px 5px; }
+
+.main-content { max-width: 1800px; margin-left: 248px; padding: 0 48px 50px; }
+.topbar { height: 70px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e6e8e2; }
+.breadcrumb { font-size: 12px; color: #818780; }
+.breadcrumb span { padding: 0 9px; color: #b6bbb5; }
+.breadcrumb strong { color: #353b35; font-weight: 600; }
+.topbar-actions { display: flex; gap: 17px; align-items: center; }
+.page-heading { display: flex; align-items: center; justify-content: space-between; padding: 36px 0 28px; }
+.page-heading h1 { margin: 9px 0 6px; font: 700 27px var(--font-heading); letter-spacing: -1px; }
+.page-heading p { margin: 0; font-size: 13px; color: var(--muted); }
+.stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 15px; margin-bottom: 23px; }
+.panel-card { overflow: hidden; }
+.panel-heading { display: flex; align-items: center; justify-content: space-between; padding: 21px 22px 17px; }
+.panel-heading h2 { margin: 5px 0 3px; font: 700 17px var(--font-heading); letter-spacing: -.4px; }
+.panel-heading p { margin: 0; font-size: 11px; color: var(--muted); }
+.table-wrap { width: 100%; overflow: auto; }
+.panel-foot { display: flex; align-items: center; justify-content: space-between; padding: 12px 22px; }
+.queue-note { display: flex; align-items: center; gap: 7px; }
+.queue-note .status-dot { width: 6px; height: 6px; }
+.disclaimer { display: flex; align-items: flex-start; gap: 9px; margin: 13px 2px; }
+.hidden { display: none !important; }
+
+.detail-dialog { width: min(540px, calc(100vw - 30px)); max-height: min(85vh, 760px); padding: 0; border: 1px solid var(--line); border-radius: 15px; color: #263027; box-shadow: 0 24px 80px #15271e30; }
+.detail-dialog::backdrop { background: #17221955; backdrop-filter: blur(2px); }
+.dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 20px 22px 15px; border-bottom: 1px solid var(--line); }
+.dialog-head h2 { margin: 5px 0 0; font: 700 19px var(--font-heading); }
+.dialog-body { max-height: 65vh; padding: 18px 22px 23px; overflow: auto; }
+.detail-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin: 16px 0 4px; }
+.toast { position: fixed; right: 25px; bottom: 24px; z-index: 4; padding: 12px 16px; border-radius: 9px; background: #263b2d; color: #fff; font-size: 12px; box-shadow: 0 8px 24px #0002; }
+
+@media (max-width: 1100px) {
+  .sidebar { width: 220px; }
+  .main-content { margin-left: 220px; padding-right: 28px; padding-left: 28px; }
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .sidebar { position: sticky; inset: 0 0 auto; width: 100%; height: auto; flex-direction: row; align-items: center; justify-content: space-between; padding: 11px 15px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .brand { padding: 0; }
+  .nav-caption, .sidebar-bottom { display: none; }
+  .nav-list { display: flex; }
+  .main-content { margin: 0; padding: 0 16px 32px; }
+  .topbar { height: 52px; }
+  .page-heading { padding: 25px 0 20px; }
+  .page-heading h1 { font-size: 22px; }
+  .page-heading p { font-size: 11px; }
+  .stats-grid { gap: 10px; margin-bottom: 15px; }
+  .panel-heading { align-items: flex-start; flex-direction: column; gap: 12px; padding: 17px 15px 14px; }
+  .panel-foot { padding: 11px 15px; }
+  .queue-note { font-size: 0; }
+  .disclaimer p { font-size: 9px; }
+}
