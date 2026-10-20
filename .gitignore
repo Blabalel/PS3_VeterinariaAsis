@@ -1,0 +1,30 @@
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Artefactos de build / cobertura
+build/
+dist/
+*.egg-info/
+
+# Archivos locales del editor
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Flutter/Dart
+app_movil/.dart_tool/
+app_movil/build/
+app_movil/.flutter-plugins
+app_movil/.flutter-plugins-dependencies
