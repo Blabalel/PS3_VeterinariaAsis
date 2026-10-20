@@ -1,5 +1,5 @@
 // Keep MOCK_MODE enabled to demo the frontend without PostgreSQL/FastAPI data routes.
-const MOCK_MODE = true;
+const MOCK_MODE = false;
 const API_BASE_URL = window.VET_API_BASE_URL || window.location.origin;
 
 const API_ROUTES = Object.freeze({
