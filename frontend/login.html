@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f6f2">
+  <title>Iniciar sesión | Panel veterinario</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/variables.css">
+  <link rel="stylesheet" href="./css/login.css">
+</head>
+<body class="login-page">
+  <main class="login-card">
+    <div class="login-brand">
+      <span class="login-brand-mark">＋</span>
+      <span class="login-brand-copy"><strong>San Francisco</strong><small>Centro veterinario</small></span>
+    </div>
+
+    <h1>Panel veterinario</h1>
+    <p class="login-subtitle">Accede con tu cuenta para revisar la cola de triaje y los pacientes de la clínica.</p>
+
+    <div class="login-notice hidden" id="login-notice" role="status"></div>
+
+    <form id="login-form" novalidate>
+      <div class="login-field">
+        <label for="email">Correo electrónico</label>
+        <input id="email" name="email" type="email" autocomplete="username" placeholder="vet@sanfrancisco.bo" required autofocus>
+      </div>
+
+      <div class="login-field">
+        <label for="password">Contraseña</label>
+        <div class="password-wrap">
+          <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Tu contraseña" required>
+          <button type="button" id="toggle-password" class="password-toggle" aria-label="Mostrar contraseña">Mostrar</button>
+        </div>
+      </div>
+
+      <div class="login-error hidden" id="login-error" role="alert"></div>
+
+      <button class="login-submit" id="login-submit" type="submit">Iniciar sesión</button>
+    </form>
+
+    <p class="login-hint">Credenciales de prueba: <code>vet@sanfrancisco.bo</code> / <code>123456</code></p>
+    <p class="login-footer">El nivel de riesgo apoya la priorización y no sustituye la valoración clínica.</p>
+  </main>
+
+  <script type="module" src="./js/login.js"></script>
+</body>
+</html>

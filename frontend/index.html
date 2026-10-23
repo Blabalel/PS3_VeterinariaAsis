@@ -5,25 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f6f2">
   <title>Panel veterinario | San Francisco de Asís</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/variables.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
+  <script>
+    // Evita mostrar el panel antes de redirigir a login.
+    (() => {
+      try {
+        const session = JSON.parse(sessionStorage.getItem('vet.session') || 'null');
+        if (!session || !session.access_token) window.location.replace('login.html');
+      } catch {
+        window.location.replace('login.html');
+      }
+    })();
+  </script>
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="#inicio" aria-label="San Francisco de Asís, inicio">
+      <a class="brand" href="#/resumen" aria-label="San Francisco de Asís, inicio">
         <span class="brand-mark">＋</span>
         <span class="brand-copy"><strong>San Francisco</strong><small>Centro veterinario</small></span>
       </a>
       <div class="nav-caption">MENÚ PRINCIPAL</div>
       <nav class="nav-list" aria-label="Menú principal">
-        <button class="nav-item active" data-view="inicio"><span class="nav-icon">▦</span>Resumen</button>
+        <button class="nav-item active" data-view="resumen"><span class="nav-icon">▦</span>Resumen</button>
         <button class="nav-item" data-view="pacientes"><span class="nav-icon">♡</span>Pacientes</button>
+        <button class="nav-item" data-view="vacunacion"><span class="nav-icon">✚</span>Vacunación</button>
       </nav>
       <div class="sidebar-bottom">
         <div class="clinic-status"><span class="status-dot"></span><span><strong>Clínica activa</strong><small>Panel de atención</small></span></div>
-        <div class="user-card"><div class="avatar">SF</div><span><strong>Equipo veterinario</strong><small>San Francisco de Asís</small></span></div>
+        <div class="user-card"><div class="avatar" id="user-initials">SF</div><span><strong id="user-name">Equipo veterinario</strong><small id="user-role">San Francisco de Asís</small></span></div>
+        <button class="logout-button js-logout" type="button" title="Cerrar sesión"><span>⏻</span> Cerrar sesión</button>
       </div>
     </aside>
 
@@ -34,7 +51,8 @@
           <span class="mock-indicator" id="mock-indicator" hidden>Modo demostración · datos ficticios</span>
           <span class="today" id="today-label"></span>
           <button class="icon-button" id="refresh-button" aria-label="Actualizar datos" title="Actualizar datos">↻</button>
-          <div class="avatar avatar-small">SF</div>
+          <button class="icon-button js-logout" type="button" aria-label="Cerrar sesión" title="Cerrar sesión">⏻</button>
+          <div class="avatar avatar-small" id="topbar-initials">SF</div>
         </div>
       </header>
 
@@ -84,6 +102,31 @@
           <div class="panel-foot"><span id="patients-count">—</span><span class="queue-note">Directorio de la clínica</span></div>
         </section>
       </section>
+
+      <section id="vaccination-view" class="hidden">
+        <div class="stats-grid">
+          <article class="stat-card"><div class="stat-top"><span class="stat-label">Refuerzos vencidos</span><span class="stat-icon icon-coral">!</span></div><div class="stat-value" id="vaccine-overdue">—</div><div class="stat-foot">Requieren contacto con el tutor</div></article>
+          <article class="stat-card"><div class="stat-top"><span class="stat-label">Próximos 30 días</span><span class="stat-icon icon-amber">◷</span></div><div class="stat-value" id="vaccine-soon">—</div><div class="stat-foot">Refuerzos por coordinar</div></article>
+          <article class="stat-card"><div class="stat-top"><span class="stat-label">Programados</span><span class="stat-icon icon-lilac">▤</span></div><div class="stat-value" id="vaccine-scheduled">—</div><div class="stat-foot">Con fecha futura</div></article>
+          <article class="stat-card"><div class="stat-top"><span class="stat-label">Total en seguimiento</span><span class="stat-icon icon-mint">✚</span></div><div class="stat-value" id="vaccine-total">—</div><div class="stat-foot">Refuerzos pendientes</div></article>
+        </div>
+
+        <section class="panel-card cases-card">
+          <div class="panel-heading">
+            <div><div class="section-kicker">PREVENCIÓN</div><h2>Calendario de vacunación</h2><p>Refuerzos vencidos y próximos de todos los pacientes.</p></div>
+            <div class="panel-tools">
+              <label class="search-box"><span>⌕</span><input id="vaccine-search" type="search" placeholder="Buscar paciente o vacuna" aria-label="Buscar paciente o vacuna"></label>
+              <button class="primary-button compact-button" id="new-vaccine-button" type="button">＋ Programar refuerzo</button>
+            </div>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>PACIENTE</th><th>TUTOR</th><th>VACUNA</th><th>FECHA</th><th>ESTADO</th><th></th></tr></thead>
+            <tbody id="vaccines-table"><tr><td colspan="6" class="loading-cell">Cargando calendario…</td></tr></tbody>
+          </table></div>
+          <div class="empty-state hidden" id="vaccines-empty"><span>✚</span><strong>No encontramos refuerzos</strong><p>Prueba con otro nombre o programa un nuevo refuerzo.</p></div>
+          <div class="panel-foot"><span id="vaccines-count">—</span><span class="queue-note"><span class="status-dot"></span> Seguimiento preventivo</span></div>
+        </section>
+      </section>
       <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
     </main>
   </div>
@@ -92,6 +135,6 @@
     <div class="dialog-head"><div><div class="section-kicker" id="detail-kicker">DETALLE CLÍNICO</div><h2 id="detail-title">Paciente</h2></div><button class="icon-button" id="close-dialog" aria-label="Cerrar">×</button></div>
     <div id="detail-content"></div>
   </dialog>
-  <script type="module" src="./js/views/resumen.js"></script>
+  <script type="module" src="./js/main.js"></script>
 </body>
 </html>

@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- La app consume la API por HTTP(S); sin este permiso las builds de
+         release no pueden conectarse (debug/profile lo declaran aparte). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="app_movil"
         android:name="${applicationName}"

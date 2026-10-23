@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="San Francisco de Asís">
+  <rect width="64" height="64" rx="16" fill="#eaf2eb"/>
+  <path d="M32 15v34M15 32h34" stroke="#35694f" stroke-width="8" stroke-linecap="round"/>
+</svg>
