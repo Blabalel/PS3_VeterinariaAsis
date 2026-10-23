@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, DateTime, Text, Boolean, JSON
+from sqlalchemy import Column, Integer, String, Date, Float, ForeignKey, DateTime, Text, Boolean, JSON
 from sqlalchemy.sql import func
-from app.db.database import Base
+from app.db.base import Base
 
 class Usuario(Base):
     __tablename__ = "usuarios"
@@ -9,6 +9,8 @@ class Usuario(Base):
     email = Column(String(100), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     rol = Column(String(20), nullable=False)
+    telefono = Column(String(30))
+    direccion = Column(String(255))
     fecha_registro = Column(DateTime(timezone=True), server_default=func.now())
 
 class Paciente(Base):
@@ -20,6 +22,9 @@ class Paciente(Base):
     raza = Column(String(50))
     fecha_nacimiento = Column(Date)
     sexo = Column(String(10))
+    peso_kg = Column(Float)
+    alergias = Column(Text)
+    foto_url = Column(String(255))
     fecha_registro = Column(DateTime(timezone=True), server_default=func.now())
 
 class HistorialClinico(Base):
@@ -34,7 +39,7 @@ class HistorialClinico(Base):
     notas_adicionales = Column(Text)
     
     # Nuevos campos requeridos por el frontend
-    respuestas = Column(JSON, default={})
+    respuestas = Column(JSON, default=dict)
     puntaje_riesgo = Column(Integer, default=0)
     estado = Column(String(20), default="pendiente")
     revisado = Column(Boolean, default=False)
@@ -47,3 +52,7 @@ class Vacunacion(Base):
     paciente_id = Column(Integer, ForeignKey("pacientes.id", ondelete="CASCADE"))
     nombre_vacuna = Column(String(100), nullable=False)
     fecha_programada = Column(DateTime(timezone=True))
+    estado = Column(String(20), default="programada")
+    fecha_aplicada = Column(DateTime(timezone=True))
+    lote = Column(String(50))
+    notas = Column(Text)

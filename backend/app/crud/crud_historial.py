@@ -37,12 +37,19 @@ def obtener_pendientes(db: Session):
         })
     return resultado
 
-def marcar_como_revisado(db: Session, historial_id: int, datos_revision: schemas.RevisarHistorialRequest):
+def marcar_como_revisado(
+    db: Session,
+    historial_id: int,
+    datos_revision: schemas.RevisarHistorialRequest,
+    veterinario_id: int | None = None,
+):
     caso = db.query(models.HistorialClinico).filter(models.HistorialClinico.id == historial_id).first()
     if caso:
         caso.revisado = True
         caso.estado = datos_revision.estado
         caso.notas_veterinario = datos_revision.notas_veterinario
+        if veterinario_id is not None:
+            caso.veterinario_id = veterinario_id
         db.commit()
         db.refresh(caso)
     return caso
