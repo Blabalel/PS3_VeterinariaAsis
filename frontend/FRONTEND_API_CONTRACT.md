@@ -36,3 +36,11 @@ Todas las rutas del panel requieren `Authorization: Bearer <access_token>`. El t
 - `GET /dataset/nuevas/{archivo}` sirve las fotos de triaje subidas. El backend devuelve esa URL en `foto_url` y el panel también acepta rutas antiguas `../dataset/...`.
 
 La app móvil adjunta el token como `Authorization: Bearer ...` en pacientes, triaje y vacunación. El login es público y es el único endpoint de datos que no requiere token; `/health` también es público.
+
+## Alta conjunta de paciente y tutor
+
+- `POST /api/pacientes/registro-con-tutor` recibe `{ "paciente": { "nombre": "...", "especie": "..." }, "tutor": { "nombre": "...", "email": "...", "password": "...", "telefono": "...", "direccion": "..." } }`.
+- Requiere Bearer y rol `veterinario` o `admin`. El servidor fija el rol de la nueva cuenta a `tutor`.
+- Responde `201` con la ficha y su tutor, sin contraseña ni hash. El registro de ambas entidades utiliza una única transacción.
+- Rechaza datos inválidos con `422`, correo existente con `409`, acceso sin sesión con `401` y rol no autorizado con `403`.
+- Ver `REGISTRO_PACIENTES.md` para campos, flujo de uso y pruebas.

@@ -11,7 +11,21 @@ import { MOCK_MODE } from '../config.js';
  */
 export async function getPatients() {
   if (MOCK_MODE) return mockApi.getPatients();
-  return requestJson(ROUTES.patients);
+  const patients = [];
+  const seen = new Set();
+  for (let skip = 0; ; skip += 500) {
+    const url = new URL(ROUTES.patients, window.location.origin);
+    url.searchParams.set('skip', skip);
+    url.searchParams.set('limit', 500);
+    const result = await requestJson(url.pathname + url.search);
+    const batch = Array.isArray(result) ? result : result.items ?? [];
+    for (const patient of batch) {
+      if (seen.has(patient.id)) throw new Error('No se pudo completar el directorio de pacientes. Reintenta la carga.');
+      seen.add(patient.id);
+      patients.push(patient);
+    }
+    if (batch.length < 500) return patients;
+  }
 }
 
 /**
@@ -50,6 +64,16 @@ export async function updatePatient(patientId, data) {
 export async function getPatientHistory(patientId) {
   if (MOCK_MODE) return mockApi.getPatientHistory(patientId);
   return requestJson(ROUTES.patientHistory(patientId));
+}
+
+/** Register both entities atomically; passwords are never stored in browser storage. */
+export async function createPatientWithTutor(payload) {
+  if (MOCK_MODE) return mockApi.createPatientWithTutor(payload);
+  return requestJson('/api/pacientes/registro-con-tutor', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
 }
 
 export { ROUTES };

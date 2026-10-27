@@ -27,6 +27,8 @@ import {
   vaccineStatusLabel,
 } from '../utils.js';
 import { setRouteSilently } from '../router.js';
+import { openPatientRegistration } from '../patient-registration.js';
+import { getUser } from '../session.js';
 import {
   openApplyVaccineDialog,
   openScheduleVaccineDialog,
@@ -35,6 +37,7 @@ import {
 let patients = [];
 let initialized = false;
 let activePatientTab = 'consultas';
+let patientVersion = 0;
 
 function normalizeList(result) {
   if (Array.isArray(result)) return result;
@@ -57,6 +60,8 @@ function renderPatients() {
   const filtered = patients.filter((patient) =>
     `${patient.nombre} ${patient.especie} ${patient.raza ?? ''} ${patient.tutor_nombre ?? ''}`.toLocaleLowerCase('es').includes(query));
 
+  $('#patients-empty strong').textContent = patients.length ? 'No hay pacientes con esta búsqueda' : 'No hay pacientes registrados';
+  $('#patients-empty p').textContent = patients.length ? 'Prueba con otro nombre, tutor o especie.' : 'Los pacientes registrados aparecerán en este directorio.';
   $('#patients-count').textContent = `${filtered.length} ${filtered.length === 1 ? 'paciente' : 'pacientes'}`;
   $('#patients-empty').classList.toggle('hidden', filtered.length !== 0);
   $('#patients-table').classList.toggle('hidden', filtered.length === 0);
@@ -66,7 +71,7 @@ function renderPatients() {
       <td><div class="patient-cell"><span class="pet-avatar">♡</span><span class="patient-info"><strong>${escapeHtml(patient.nombre)}</strong><small>${escapeHtml(patient.tutor_nombre ?? 'Tutor')} · #${escapeHtml(patient.id)}</small></span></div></td>
       <td>${escapeHtml(patient.especie)}</td><td>${escapeHtml(patient.raza || '—')}</td>
       <td>${escapeHtml(patient.sexo || '—')}</td><td class="date-cell">${formatDate(patient.fecha_registro)}</td>
-      <td><button class="row-action" data-patient-id="${escapeHtml(patient.id)}" aria-label="Ver ficha de ${escapeHtml(patient.nombre)}" title="Ver ficha">⋯</button></td>
+      <td><button class="secondary-button table-action" data-patient-id="${escapeHtml(patient.id)}" aria-label="Ver ficha de ${escapeHtml(patient.nombre)}" title="Ver ficha">Ver ficha</button></td>
     </tr>`).join('');
 
   $('#patients-table').querySelectorAll('[data-patient-id]').forEach((button) => {
@@ -134,11 +139,19 @@ function vaccineMarkup(item) {
 
 function renderPatientTab(detail, history, vaccinations) {
   document.querySelectorAll('[data-patient-tab]').forEach((button) => {
-    button.classList.toggle('active', button.dataset.patientTab === activePatientTab);
+    const active = button.dataset.patientTab === activePatientTab;
+    button.classList.toggle('active', active);
+    button.setAttribute('role', 'tab');
+    button.id = `tab-${button.dataset.patientTab}`;
+    button.setAttribute('aria-controls', 'patient-tab-content');
+    button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
   });
 
   const container = $('#patient-tab-content');
   if (!container) return;
+  container.setAttribute('role', 'tabpanel');
+  container.setAttribute('aria-labelledby', `tab-${activePatientTab}`);
 
   if (activePatientTab === 'vacunas') {
     container.innerHTML = `
@@ -199,7 +212,7 @@ function bindPdfButton(detail) {
   });
 }
 
-function renderPatientDialog(detail, history, vaccinations) {
+function renderPatientDialog(detail, history, vaccinations, errors = []) {
   const tutor = detail.tutor ?? {};
   $('#detail-title').textContent = detail.nombre;
   $('#detail-kicker').textContent = `FICHA · PACIENTE #${detail.id}`;
@@ -208,7 +221,7 @@ function renderPatientDialog(detail, history, vaccinations) {
   const subtitle = [detail.especie, detail.raza, detail.sexo].filter(Boolean).map((value) => escapeHtml(value)).join(' · ') || 'Sin datos clínicos';
 
   $('#detail-content').innerHTML = `
-    <div class="dialog-body patient-profile">
+    <div class="dialog-body patient-profile">${errors.length ? `<p class="notice" role="alert">Ficha incompleta: no se pudieron cargar ${escapeHtml(errors.join(", "))}. Cierra y vuelve a abrir la ficha para reintentar.</p>` : ''}
       <div class="profile-hero">
         ${photoMarkup(detail)}
         <div class="profile-main">
@@ -252,6 +265,15 @@ function renderPatientDialog(detail, history, vaccinations) {
 
   bindPdfButton(detail);
   document.querySelectorAll('[data-patient-tab]').forEach((button) => {
+    button.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const tabs = [...document.querySelectorAll('[data-patient-tab]')];
+      const index = tabs.indexOf(button);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      tabs[next].click();
+      tabs[next].focus();
+    });
     button.addEventListener('click', () => {
       activePatientTab = button.dataset.patientTab;
       renderPatientTab(detail, history, vaccinations);
@@ -282,25 +304,31 @@ async function fetchPatientBundle(patient) {
 }
 
 async function showPatientDetail(patient) {
+  const version = ++patientVersion;
   activePatientTab = 'consultas';
-  openDetail(patient.nombre, `FICHA · PACIENTE #${patient.id}`, '<p class="loading-cell">Cargando ficha del paciente…</p>');
+  if (openDetail(patient.nombre, `FICHA · PACIENTE #${patient.id}`, '<p class="loading-cell">Cargando ficha del paciente…</p>') === false) return;
 
   try {
     const bundle = await fetchPatientBundle(patient);
-    renderPatientDialog(bundle.detail, bundle.history, bundle.vaccinations);
+    if (version !== patientVersion || !$('#detail-dialog').open || $('#detail-kicker').textContent !== `FICHA · PACIENTE #${patient.id}`) return;
+    renderPatientDialog(bundle.detail, bundle.history, bundle.vaccinations, bundle.errors);
     if (bundle.errors.length) {
       toast(`No se pudieron cargar: ${bundle.errors.join(', ')}.`);
     }
   } catch (error) {
+    if (version !== patientVersion || !$('#detail-dialog').open || $('#detail-kicker').textContent !== `FICHA · PACIENTE #${patient.id}`) return;
     $('#detail-content').innerHTML = `<div class="dialog-body"><div class="error-state">No se pudo cargar la ficha: ${escapeHtml(error.message)} <button type="button" id="retry-patient">Reintentar</button></div></div>`;
     $('#retry-patient')?.addEventListener('click', () => showPatientDetail(patient));
   }
 }
 
 async function reloadPatient(detail) {
+  const version = patientVersion;
+  const content = $('#detail-content').firstElementChild;
   try {
     const bundle = await fetchPatientBundle(detail);
-    renderPatientDialog(bundle.detail, bundle.history, bundle.vaccinations);
+    if (version !== patientVersion || !$('#detail-dialog').open || !content?.isConnected) return;
+    renderPatientDialog(bundle.detail, bundle.history, bundle.vaccinations, bundle.errors);
     if (bundle.errors.length) {
       toast(`No se pudieron cargar: ${bundle.errors.join(', ')}.`);
     }
@@ -322,7 +350,9 @@ async function removePatientVaccine(vaccineId, detail) {
 
 export async function loadPatients() {
   try {
+    $('#patients-empty').classList.add('hidden');
     $('#patients-table').classList.remove('hidden');
+    if (!patients.length) $('#patients-table').innerHTML = '<tr><td colspan="6" class="loading-cell">Cargando pacientes…</td></tr>';
     const result = await getPatients();
     patients = normalizeList(result);
     renderPatients();
@@ -332,7 +362,7 @@ export async function loadPatients() {
     $('#retry-patients')?.addEventListener('click', loadPatients);
     $('#patients-count').textContent = 'Error al cargar';
     toast(`No se pudieron cargar los pacientes: ${error.message}`);
-    return 0;
+    return null;
   }
 }
 
@@ -349,4 +379,10 @@ export function initPacientes() {
   if (initialized) return;
   initialized = true;
   $('#patient-search').addEventListener('input', renderPatients);
+  $('#new-patient-button').hidden = !['admin', 'veterinario'].includes(getUser()?.rol);
+  $('#new-patient-button').addEventListener('click', () => openPatientRegistration(async () => {
+    // Clear previous filters so the new patient is visible after registration.
+    $('#patient-search').value = '';
+    await loadPatients();
+  }));
 }

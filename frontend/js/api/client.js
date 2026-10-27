@@ -68,6 +68,8 @@ export async function requestJson(path, options = {}) {
       redirectToLogin();
       detail = 'Tu sesión expiró. Inicia sesión nuevamente.';
     }
+    if (Array.isArray(detail)) detail = detail.map((item) => `${item.loc?.slice(1).join(' · ') || 'Campo'}: ${item.msg || 'Revisa este dato.'}`).join(' ');
+    if (typeof detail !== 'string') detail = 'No se pudo completar la solicitud. Revisa los datos e intenta nuevamente.';
     throw new Error(detail);
   }
   return response.json();
@@ -174,6 +176,16 @@ function mockPatientDetail(patient) {
  * These mirror the real API functions but use local mock data.
  */
 export const mockApi = {
+  async createPatientWithTutor(payload) {
+    await delay();
+    const email = payload.tutor.email.toLowerCase();
+    if (mockPatients.some((patient) => patient.tutor_email?.toLowerCase() === email)) throw new Error('Este correo ya está registrado. Revisa el correo del tutor.');
+    const id = Math.max(0, ...mockPatients.map((patient) => patient.id)) + 1;
+    const tutorId = Math.max(0, ...mockPatients.map((patient) => patient.tutor_id)) + 1;
+    const patient = { ...payload.paciente, id, tutor_id: tutorId, fecha_registro: new Date().toISOString(), tutor_nombre: payload.tutor.nombre, tutor_email: email, tutor_telefono: payload.tutor.telefono, tutor_direccion: payload.tutor.direccion };
+    mockPatients.push(patient);
+    return mockPatientDetail(patient);
+  },
   async getPendingCases() {
     await delay();
     return mockCases.filter((item) => !item.revisado).map((item) => ({ ...item, respuestas: { ...item.respuestas } }));

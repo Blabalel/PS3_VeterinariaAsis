@@ -1,9 +1,11 @@
 """Punto de entrada principal de la API Veterinaria."""
 from pathlib import Path
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from app.core.config import settings
 from app.db.database import engine, ensure_schema
 from app.models import models
 from app.api import router
@@ -13,6 +15,16 @@ models.Base.metadata.create_all(bind=engine)
 ensure_schema()
 
 app = FastAPI(title="API Veterinaria CNN")
+
+# Permite probar el panel y la app Flutter desde otro origen (por ejemplo,
+# `flutter run -d chrome`, que sirve la app en http://localhost:<puerto>).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.middleware("http")

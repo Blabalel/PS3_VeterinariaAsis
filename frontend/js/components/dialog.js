@@ -1,7 +1,7 @@
 /**
  * Dialog component for detail modals.
  */
-import { $ } from '../utils.js';
+import { $, closeDetail as closeClinicalDetail, openDetail as openClinicalDetail } from '../utils.js';
 
 /**
  * Opens a detail dialog.
@@ -10,21 +10,14 @@ import { $ } from '../utils.js';
  * @param {string} content - HTML content for the dialog body
  */
 export function openDetail(title, kicker, content) {
-  const dialog = $('#detail-dialog');
-  if (!dialog) return;
-  $('#detail-title').textContent = title;
-  $('#detail-kicker').textContent = kicker;
-  $('#detail-content').innerHTML = `<div class="dialog-body">${content}</div>`;
-  if (dialog.open) dialog.close();
-  dialog.showModal();
+  return openClinicalDetail(title, kicker, content);
 }
 
 /**
  * Closes the detail dialog.
  */
 export function closeDetail() {
-  const dialog = $('#detail-dialog');
-  if (dialog?.open) dialog.close();
+  return closeClinicalDetail();
 }
 
 /**
@@ -37,17 +30,19 @@ export function bindDialogEvents(onClose, getCurrentView, setRouteSilently) {
   const dialog = $('#detail-dialog');
   if (!dialog) return;
 
-  $('#close-dialog').addEventListener('click', closeDetail);
+  function dismiss() {
+    if (!closeDetail()) return;
+    const route = getCurrentView?.();
+    if (route && (route.caseId || route.id)) setRouteSilently(route.view ?? 'resumen');
+    onClose?.();
+  }
+  $('#close-dialog').addEventListener('click', dismiss);
+  dialog.addEventListener('cancel', (event) => { event.preventDefault(); dismiss(); });
   
   dialog.addEventListener('click', (event) => {
-    if (event.target === dialog) closeDetail();
+    if (event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dismiss();
   });
   
-  dialog.addEventListener('close', () => {
-    const route = getCurrentView ? getCurrentView() : null;
-    if (route && (route.caseId || route.id)) {
-      setRouteSilently(route.view ?? 'resumen');
-    }
-    if (onClose) onClose();
-  });
 }

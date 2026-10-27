@@ -9,8 +9,8 @@ export function parseRoute(hash = window.location.hash) {
   if (section === 'pacientes') {
     return { view: 'pacientes', id: id || null, caseId: null };
   }
-  if (section === 'vacunacion') {
-    return { view: 'vacunacion', id: null, caseId: null };
+  if (['vacunacion', 'telemedicina', 'reportes'].includes(section)) {
+    return { view: section, id: null, caseId: null };
   }
   if (section === 'caso' && id) {
     return { view: 'resumen', id: null, caseId: id };
@@ -30,6 +30,7 @@ export function navigate(path) {
 export function setRouteSilently(path) {
   const hash = routeToHash(path);
   if (window.location.hash !== hash) history.replaceState(null, '', hash);
+  window.dispatchEvent(new Event('vet:route-silent'));
 }
 
 export function currentRoute() {

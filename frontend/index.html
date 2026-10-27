@@ -12,6 +12,9 @@
   <link rel="stylesheet" href="./css/variables.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/clinical.css">
+  <script defer src="./vendor/fullcalendar-6.1.19.global.min.js"></script>
+  <script defer src="./vendor/fullcalendar-es-6.1.19.global.min.js"></script>
   <script>
     // Evita mostrar el panel antes de redirigir a login.
     (() => {
@@ -25,20 +28,23 @@
   </script>
 </head>
 <body>
+  <a class="skip-link" href="#page-title">Saltar al contenido</a>
   <div class="app-shell">
-    <aside class="sidebar">
+    <aside class="sidebar" id="main-navigation">
       <a class="brand" href="#/resumen" aria-label="San Francisco de Asís, inicio">
         <span class="brand-mark">＋</span>
         <span class="brand-copy"><strong>San Francisco</strong><small>Centro veterinario</small></span>
       </a>
       <div class="nav-caption">MENÚ PRINCIPAL</div>
       <nav class="nav-list" aria-label="Menú principal">
-        <button class="nav-item active" data-view="resumen"><span class="nav-icon">▦</span>Resumen</button>
-        <button class="nav-item" data-view="pacientes"><span class="nav-icon">♡</span>Pacientes</button>
+        <button class="nav-item active" data-view="resumen"><span class="nav-icon" aria-hidden="true">▦</span>Triaje / Cola</button>
+        <button class="nav-item" data-view="telemedicina"><span class="nav-icon" aria-hidden="true">▤</span>Telemedicina</button>
+        <button class="nav-item" data-view="pacientes"><span class="nav-icon" aria-hidden="true">♡</span>Pacientes / Historial</button>
         <button class="nav-item" data-view="vacunacion"><span class="nav-icon">✚</span>Vacunación</button>
+        <button class="nav-item" data-view="reportes"><span class="nav-icon" aria-hidden="true">▧</span>Reportes</button>
       </nav>
       <div class="sidebar-bottom">
-        <div class="clinic-status"><span class="status-dot"></span><span><strong>Clínica activa</strong><small>Panel de atención</small></span></div>
+        <div class="clinic-status"><span class="status-dot"></span><span><strong>Panel clínico</strong><small>Panel de atención</small></span></div>
         <div class="user-card"><div class="avatar" id="user-initials">SF</div><span><strong id="user-name">Equipo veterinario</strong><small id="user-role">San Francisco de Asís</small></span></div>
         <button class="logout-button js-logout" type="button" title="Cerrar sesión"><span>⏻</span> Cerrar sesión</button>
       </div>
@@ -46,10 +52,11 @@
 
     <main class="main-content">
       <header class="topbar">
+        <button class="menu-toggle secondary-button" id="menu-toggle" type="button" aria-controls="main-navigation" aria-expanded="false">☰ Menú</button>
         <div class="breadcrumb">Clínica <span>/</span> <strong id="breadcrumb-current">Triaje</strong></div>
         <div class="topbar-actions">
           <span class="mock-indicator" id="mock-indicator" hidden>Modo demostración · datos ficticios</span>
-          <span class="today" id="today-label"></span>
+          <span class="today" id="today-label"></span><span id="last-updated" class="updated-label" role="status">Sin actualizar</span>
           <button class="icon-button" id="refresh-button" aria-label="Actualizar datos" title="Actualizar datos">↻</button>
           <button class="icon-button js-logout" type="button" aria-label="Cerrar sesión" title="Cerrar sesión">⏻</button>
           <div class="avatar avatar-small" id="topbar-initials">SF</div>
@@ -59,7 +66,7 @@
       <section class="page-heading">
         <div>
           <div class="eyebrow">SAN FRANCISCO DE ASÍS <span class="heading-dot">●</span> <span id="heading-date"></span></div>
-          <h1 id="page-title">Cola priorizada de triaje</h1>
+          <h1 id="page-title" tabindex="-1">Cola priorizada de triaje</h1>
           <p id="page-subtitle">Los reportes críticos y con mayor puntaje aparecen primero.</p>
         </div>
         <div class="heading-mark" aria-hidden="true">✳</div>
@@ -76,10 +83,14 @@
         <section class="panel-card cases-card">
           <div class="panel-heading">
             <div><div class="section-kicker">SEGUIMIENTO CLÍNICO</div><h2>Casos pendientes</h2><p>Críticos primero; dentro de cada nivel, mayor puntaje de riesgo.</p></div>
-            <label class="search-box"><span>⌕</span><input id="case-search" type="search" placeholder="Buscar paciente o tutor" aria-label="Buscar paciente o tutor"></label>
+            <div class="panel-tools">
+              <label class="search-box"><span aria-hidden="true">⌕</span><input id="case-search" type="search" placeholder="Paciente, tutor o motivo" aria-label="Buscar casos por paciente, tutor o motivo"></label>
+              <label class="filter-field">Prioridad<select id="case-priority"><option value="">Todas</option value="critica">Crítica</option><option value="moderada">Moderada</option><option value="leve">Leve</option></select></label>
+            </div>
           </div>
-          <div class="table-wrap"><table>
-            <thead><tr><th>PACIENTE</th><th>TUTOR</th><th>MOTIVO</th><th>GRAVEDAD</th><th>PUNTAJE</th><th></th></tr></thead>
+          <div class="notice hidden" id="critical-filter-warning" role="status"></div>
+          <div class="table-wrap"><table aria-label="Cola priorizada de casos pendientes">
+            <thead><tr><th scope="col">PRIORIDAD</th><th scope="col">PACIENTE</th><th scope="col">MOTIVO</th><th scope="col">REPORTE RECIBIDO</th><th scope="col">PUNTAJE</th><th scope="col">ACCIÓN</th></tr></thead>
             <tbody id="cases-table"><tr><td colspan="6" class="loading-cell">Cargando casos pendientes…</td></tr></tbody>
           </table></div>
           <div class="empty-state hidden" id="cases-empty"><span>⌕</span><strong>No encontramos casos</strong><p>Prueba con otro nombre o término de búsqueda.</p></div>
@@ -92,10 +103,10 @@
         <section class="panel-card cases-card">
           <div class="panel-heading">
             <div><div class="section-kicker">DIRECTORIO</div><h2>Pacientes registrados</h2><p>Pacientes vinculados a sus tutores.</p></div>
-            <label class="search-box"><span>⌕</span><input id="patient-search" type="search" placeholder="Buscar paciente" aria-label="Buscar paciente"></label>
+            <div class="panel-tools"><label class="search-box"><span aria-hidden="true">⌕</span><input id="patient-search" type="search" placeholder="Buscar paciente" aria-label="Buscar paciente"></label><button id="new-patient-button" class="primary-button compact-button" type="button">＋ Nuevo paciente</button></div>
           </div>
           <div class="table-wrap"><table>
-            <thead><tr><th>PACIENTE</th><th>ESPECIE</th><th>RAZA</th><th>SEXO</th><th>FECHA DE REGISTRO</th><th></th></tr></thead>
+            <thead><tr><th>PACIENTE</th><th>ESPECIE</th><th>RAZA</th><th>SEXO</th><th>FECHA DE REGISTRO</th><th scope="col">ACCIÓN</th></tr></thead>
             <tbody id="patients-table"><tr><td colspan="6" class="loading-cell">Cargando pacientes…</td></tr></tbody>
           </table></div>
           <div class="empty-state hidden" id="patients-empty"><span>♡</span><strong>No encontramos pacientes</strong><p>Prueba con otro nombre de paciente.</p></div>
@@ -103,35 +114,42 @@
         </section>
       </section>
 
-      <section id="vaccination-view" class="hidden">
-        <div class="stats-grid">
-          <article class="stat-card"><div class="stat-top"><span class="stat-label">Refuerzos vencidos</span><span class="stat-icon icon-coral">!</span></div><div class="stat-value" id="vaccine-overdue">—</div><div class="stat-foot">Requieren contacto con el tutor</div></article>
-          <article class="stat-card"><div class="stat-top"><span class="stat-label">Próximos 30 días</span><span class="stat-icon icon-amber">◷</span></div><div class="stat-value" id="vaccine-soon">—</div><div class="stat-foot">Refuerzos por coordinar</div></article>
-          <article class="stat-card"><div class="stat-top"><span class="stat-label">Programados</span><span class="stat-icon icon-lilac">▤</span></div><div class="stat-value" id="vaccine-scheduled">—</div><div class="stat-foot">Con fecha futura</div></article>
-          <article class="stat-card"><div class="stat-top"><span class="stat-label">Total en seguimiento</span><span class="stat-icon icon-mint">✚</span></div><div class="stat-value" id="vaccine-total">—</div><div class="stat-foot">Refuerzos pendientes</div></article>
+      <section id="vaccination-view" class="hidden" aria-label="Vacunación">
+        <div class="stats-grid vaccine-stats">
+          <article class="stat-card"><span class="stat-label">Refuerzos vencidos</span><div class="stat-value" id="vaccine-overdue">—</div><span class="stat-foot">Pendientes de seguimiento</span></article>
+          <article class="stat-card"><span class="stat-label">Hoy</span><div class="stat-value" id="vaccine-today">—</div><span class="stat-foot">Aplicaciones programadas</span></article>
+          <article class="stat-card"><span class="stat-label">Próximos 7 días</span><div class="stat-value" id="vaccine-soon">—</div><span class="stat-foot">Incluye los refuerzos de hoy</span></article>
+          <article class="stat-card"><span class="stat-label">Total pendiente</span><div class="stat-value" id="vaccine-total">—</div><span class="stat-foot">Todos los pacientes y fechas</span></article>
         </div>
-
-        <section class="panel-card cases-card">
-          <div class="panel-heading">
-            <div><div class="section-kicker">PREVENCIÓN</div><h2>Calendario de vacunación</h2><p>Refuerzos vencidos y próximos de todos los pacientes.</p></div>
-            <div class="panel-tools">
-              <label class="search-box"><span>⌕</span><input id="vaccine-search" type="search" placeholder="Buscar paciente o vacuna" aria-label="Buscar paciente o vacuna"></label>
-              <button class="primary-button compact-button" id="new-vaccine-button" type="button">＋ Programar refuerzo</button>
-            </div>
+        <section class="panel-card calendar-panel">
+          <div class="panel-heading"><div><div class="section-kicker">PREVENCIÓN</div><h2>Vacunas y refuerzos</h2><p>Planifica el seguimiento y consulta las aplicaciones registradas.</p></div><button class="primary-button compact-button" id="new-vaccine-button" type="button">＋ Programar refuerzo</button></div>
+          <div class="calendar-filters" aria-label="Filtros de vacunación">
+            <label class="filter-field">Mascota<select id="vaccine-patient-filter"><option value="">Todas las mascotas</option></select></label>
+            <label class="filter-field">Vacuna<select id="vaccine-type-filter"><option value="">Todas las vacunas</option></select></label>
+            <label class="filter-field">Estado<select id="vaccine-status-filter"><option value="">Todos los estados</option><option value="programada">Pendiente</option><option value="proxima">Próxima</option><option value="vencida">Vencida</option><option value="aplicada">Aplicada</option></select></label>
+            <button class="secondary-button compact-button" id="clear-vaccine-filters" type="button">Limpiar filtros</button>
           </div>
-          <div class="table-wrap"><table>
-            <thead><tr><th>PACIENTE</th><th>TUTOR</th><th>VACUNA</th><th>FECHA</th><th>ESTADO</th><th></th></tr></thead>
-            <tbody id="vaccines-table"><tr><td colspan="6" class="loading-cell">Cargando calendario…</td></tr></tbody>
-          </table></div>
-          <div class="empty-state hidden" id="vaccines-empty"><span>✚</span><strong>No encontramos refuerzos</strong><p>Prueba con otro nombre o programa un nuevo refuerzo.</p></div>
-          <div class="panel-foot"><span id="vaccines-count">—</span><span class="queue-note"><span class="status-dot"></span> Seguimiento preventivo</span></div>
+          <div class="status-legend" aria-label="Leyenda de estados"><span class="vaccine-status programada">◷ Pendiente</span><span class="vaccine-status proxima">◴ Próxima · hasta 30 días</span><span class="vaccine-status vencida">! Vencida</span><span class="vaccine-status aplicada">✓ Aplicada</span></div>
+          <div class="notice hidden" id="vaccine-warning" role="status"></div>
+          <div id="vaccine-loading" class="loading-state" role="status">Cargando vacunas e historial…</div>
+          <div id="vaccination-calendar" aria-label="Calendario de vacunas"></div>
+          <div id="calendar-empty" class="empty-state hidden" role="status"></div>
+          <div id="undated-vaccines" class="hidden"></div>
+          <div class="panel-foot"><span id="vaccines-count" role="status">—</span><span>Fechas de la clínica · Bolivia</span></div>
         </section>
+        <section class="panel-card upcoming-panel"><div class="panel-heading"><div><div class="section-kicker">SEGUIMIENTO</div><h2>Hoy y próximos 7 días</h2><p>Recordatorios visuales de vacunas pendientes. Respeta tus filtros.</p></div></div><div id="upcoming-vaccines" class="upcoming-list"></div></section>
+      </section>
+      <section id="telemedicine-view" class="hidden" aria-label="Telemedicina">
+        <section class="panel-card"><div class="panel-heading"><div><div class="section-kicker">REVISIÓN ASÍNCRONA</div><h2>Reportes por revisar</h2><p>Cuestionarios, fotografías y notas clínicas en un mismo lugar.</p></div><label class="search-box"><span aria-hidden="true">⌕</span><input id="telemedicine-search" type="search" placeholder="Paciente o motivo" aria-label="Buscar reportes de telemedicina"></label></div><div id="telemedicine-list" class="report-list"></div></section>
+      </section>
+      <section id="reports-view" class="hidden" aria-label="Reportes">
+        <section class="panel-card"><div class="panel-heading"><div><div class="section-kicker">DOCUMENTACIÓN CLÍNICA</div><h2>Historial clínico en PDF</h2><p>Selecciona un paciente para generar su historial con la información registrada.</p></div></div><div id="reports-content" class="reports-content"></div></section>
       </section>
       <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
     </main>
   </div>
 
-  <dialog class="detail-dialog" id="detail-dialog">
+  <dialog class="detail-dialog" id="detail-dialog" aria-labelledby="detail-title">
     <div class="dialog-head"><div><div class="section-kicker" id="detail-kicker">DETALLE CLÍNICO</div><h2 id="detail-title">Paciente</h2></div><button class="icon-button" id="close-dialog" aria-label="Cerrar">×</button></div>
     <div id="detail-content"></div>
   </dialog>

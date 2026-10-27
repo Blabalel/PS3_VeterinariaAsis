@@ -8,7 +8,31 @@ from app.schemas import schemas
 from app.crud import crud_paciente
 from app.models import models
 
+from app.schemas.registro_paciente import RegistroPacienteCreate, RegistroPacienteResponse
+from app.services.registro_paciente_service import (
+    CorreoTutorExistente,
+    RegistroNoDisponible,
+    registrar_paciente_con_tutor,
+)
+
 router = APIRouter()
+
+
+@router.post("/pacientes/registro-con-tutor", response_model=RegistroPacienteResponse, status_code=201)
+def registrar_con_tutor(
+    datos: RegistroPacienteCreate,
+    db: Session = Depends(get_db),
+    _: models.Usuario = Depends(require_roles("veterinario", "admin")),
+):
+    try:
+        paciente = registrar_paciente_con_tutor(db, datos)
+    except CorreoTutorExistente:
+        raise HTTPException(status_code=409, detail="Este correo ya está registrado. Revisa el correo del tutor antes de volver a guardar. No se creó otro paciente ni tutor.")
+    except RegistroNoDisponible:
+        raise HTTPException(status_code=503, detail="No se pudo completar el registro conjunto. Reintenta cuando se restablezca la conexión.")
+    resultado = paciente_detalle(db, paciente)
+    resultado["tutor_nombre"] = resultado["tutor"]["nombre"]
+    return resultado
 
 
 @router.post("/pacientes/", response_model=schemas.PacienteResponse)

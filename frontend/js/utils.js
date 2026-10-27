@@ -1,3 +1,5 @@
+import { CLINIC_ZONE, dateKey } from './calendar-model.js';
+
 export const $ = (selector, root = document) => root.querySelector(selector);
 export const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
@@ -11,12 +13,12 @@ export function escapeHtml(value) {
 
 export function formatDate(value, includeTime = false) {
   if (!value) return '—';
-  const date = new Date(value);
+  const date = new Date(!includeTime && dateKey(value) ? `${dateKey(value)}T12:00:00-04:00` : value);
   if (Number.isNaN(date.getTime())) return '—';
   const options = includeTime
     ? { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }
     : { day: '2-digit', month: 'short', year: 'numeric' };
-  return new Intl.DateTimeFormat('es-BO', options).format(date);
+  return new Intl.DateTimeFormat('es-BO', { ...options, timeZone: CLINIC_ZONE }).format(date);
 }
 
 export function initials(name) {
@@ -63,9 +65,9 @@ export function vaccineStatusLabel(value) {
     aplicada: 'Aplicada',
     vencida: 'Vencida',
     proxima: 'Próxima',
-    programada: 'Programada',
+    programada: 'Pendiente',
     cancelada: 'Cancelada',
-  })[String(value ?? '').toLowerCase()] || 'Programada';
+  })[String(value ?? '').toLowerCase()] || 'Pendiente';
 }
 
 export function vaccineStatusClass(value) {
@@ -133,17 +135,43 @@ export function triggerDownload({ blob, filename }) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+let detailDirty = false;
+let detailBusy = false;
+let returnFocus = null;
+export function setDetailDirty(value) { detailDirty = value; }
+export function setDetailBusy(value) {
+  detailBusy = value;
+  $('#detail-dialog')?.setAttribute('aria-busy', String(value));
+  if ($('#close-dialog')) $('#close-dialog').disabled = value;
+}
+export function confirmDetailClose() {
+  if (detailBusy) return false;
+  return !detailDirty || window.confirm('Tienes cambios sin guardar. ¿Quieres descartarlos?');
+}
+window.addEventListener('beforeunload', (event) => {
+  if (!detailDirty && !detailBusy) return;
+  event.preventDefault();
+  event.returnValue = '';
+});
 export function openDetail(title, kicker, content) {
+  if (!confirmDetailClose()) return false;
+  detailDirty = false;
+  setDetailBusy(false);
+  if (!$('#detail-dialog')?.open) returnFocus = document.activeElement;
   const dialog = $('#detail-dialog');
   if (!dialog) return;
   $('#detail-title').textContent = title;
   $('#detail-kicker').textContent = kicker;
   $('#detail-content').innerHTML = `<div class="dialog-body">${content}</div>`;
-  if (dialog.open) dialog.close();
-  dialog.showModal();
+  if (!dialog.open) dialog.showModal();
+  return true;
 }
 
 export function closeDetail() {
+  if (!confirmDetailClose()) return false;
+  detailDirty = false;
   const dialog = $('#detail-dialog');
   if (dialog?.open) dialog.close();
+  if (returnFocus?.isConnected) returnFocus.focus();
+  return true;
 }
