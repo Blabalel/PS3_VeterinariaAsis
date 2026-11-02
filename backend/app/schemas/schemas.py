@@ -75,7 +75,7 @@ class HistorialBase(BaseModel):
     nivel_gravedad: Optional[str] = None 
     notas_adicionales: Optional[str] = None
     respuestas: Optional[Dict[str, Any]] = {}
-    puntaje_riesgo: Optional[int] = 0
+    puntaje_riesgo: Optional[int] = None  # Soporta None para casos insuficientes
     foto_url: Optional[str] = None
 
 class HistorialCreate(HistorialBase):
@@ -98,7 +98,7 @@ class HistorialPendienteResponse(BaseModel):
     tutor_nombre: str
     motivo: str
     respuestas: Dict[str, Any]
-    puntaje_riesgo: int
+    puntaje_riesgo: Optional[int] = None  # Soporta None para casos insuficientes
     nivel_gravedad: str
     fecha_consulta: datetime
     foto_url: Optional[str] = None

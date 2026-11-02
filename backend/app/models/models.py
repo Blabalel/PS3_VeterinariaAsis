@@ -38,9 +38,9 @@ class HistorialClinico(Base):
     nivel_gravedad = Column(String(20))
     notas_adicionales = Column(Text)
     
-    # Nuevos campos requeridos por el frontend
+    # Campos de triaje actualizados
     respuestas = Column(JSON, default=dict)
-    puntaje_riesgo = Column(Integer, default=0)
+    puntaje_riesgo = Column(Integer, nullable=True)  # <-- Modificado para permitir nulos en casos insuficientes
     estado = Column(String(20), default="pendiente")
     revisado = Column(Boolean, default=False)
     notas_veterinario = Column(Text, nullable=True)
