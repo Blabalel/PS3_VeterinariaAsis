@@ -39,6 +39,16 @@ class _TriageScreenState extends State<TriageScreen> {
     super.dispose();
   }
 
+  bool _hasPendingChanges() {
+    return _activeBleeding != null ||
+        _appetite != null ||
+        _activity != null ||
+        _painOnTouch != null ||
+        _photo != null ||
+        _observationsController.text.trim().isNotEmpty ||
+        _temperatureController.text.trim().isNotEmpty;
+  }
+
   Future<void> _choosePhoto() async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -66,21 +76,24 @@ class _TriageScreenState extends State<TriageScreen> {
       };
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_activeBleeding == null ||
-        _appetite == null ||
-        _activity == null ||
-        _painOnTouch == null) {
+    // La validación ahora evalúa directamente cada pregunta visualmente
+    if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Responde las preguntas 1 a 4 para continuar.')),
+        SnackBar(
+          content: const Text('Por favor, completa todas las preguntas obligatorias.'),
+          backgroundColor: Colors.red.shade800,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
+
     setState(() => _submitting = true);
     final answers = _answers();
     final reason = _observationsController.text.trim().isEmpty
         ? 'Cuestionario de triaje de ${widget.patient.nombre}'
         : _observationsController.text.trim();
+    
     try {
       final dynamic result;
       if (_photo == null) {
@@ -101,46 +114,156 @@ class _TriageScreenState extends State<TriageScreen> {
           fileField: 'foto',
         );
       }
+      
       if (!mounted) return;
       final response = result is Map ? result : <String, dynamic>{};
       final severity = response['nivel_gravedad']?.toString() ??
           response['gravedad']?.toString() ??
           'pendiente';
       final score = response['puntaje_riesgo']?.toString();
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          icon: const Icon(Icons.check_circle_outline, color: Color(0xFF39734F), size: 38),
-          title: const Text('Caso enviado'),
-          content: Text(
-            'El reporte de ${widget.patient.nombre} fue enviado al equipo veterinario.\n\n'
-            'Nivel de riesgo preliminar: ${_severityLabel(severity)}'
-            '${score == null ? '' : '\nPuntaje: $score'}\n\n'
-            'Este resultado sirve para priorizar la revisión y no reemplaza la evaluación del veterinario.',
-          ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))],
-        ),
-      );
-      if (mounted) Navigator.pop(context);
+      
+      _showSemanticResultDialog(severity, score);
+
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo enviar el triaje: $error')),
+        SnackBar(
+          content: Text('No se pudo enviar el triaje: ${error.toString().replaceAll('Exception:', '').trim()}'),
+          backgroundColor: Colors.red.shade800,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
   }
 
-  String _severityLabel(String severity) => switch (severity.toLowerCase()) {
-        'critica' || 'crítica' => 'Crítico',
-        'moderada' => 'Moderado',
-        'leve' => 'Leve',
-        _ => 'Pendiente de cálculo',
-      };
+  void _showSemanticResultDialog(String severity, String? score) {
+    Color cardColor;
+    IconData icon;
+    String label;
+
+    switch (severity.toLowerCase()) {
+      case 'critica':
+      case 'crítica':
+        cardColor = const Color(0xFFCA5C4A);
+        icon = Icons.error_outline;
+        label = 'Prioridad Crítica';
+        break;
+      case 'moderada':
+        cardColor = const Color(0xFFAD7922);
+        icon = Icons.warning_amber_rounded;
+        label = 'Prioridad Moderada';
+        break;
+      case 'leve':
+        cardColor = const Color(0xFF4E875F);
+        icon = Icons.check_circle_outline;
+        label = 'Prioridad Leve';
+        break;
+      default:
+        cardColor = Colors.grey.shade600;
+        icon = Icons.info_outline;
+        label = 'Pendiente de cálculo';
+    }
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.all(24),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 34,
+              backgroundColor: cardColor.withOpacity(0.12),
+              child: Icon(icon, color: cardColor, size: 38),
+            ),
+            const SizedBox(height: 20),
+            const Text('Reporte enviado', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Text(
+              'El caso de ${widget.patient.nombre} fue recibido exitosamente por el equipo de la clínica.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: cardColor.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: cardColor.withOpacity(0.3)),
+              ),
+              child: Column(
+                children: [
+                  Text(label, style: TextStyle(color: cardColor, fontWeight: FontWeight.bold, fontSize: 16)),
+                  if (score != null) ...[
+                    const SizedBox(height: 4),
+                    Text('Puntaje: $score', style: TextStyle(color: cardColor, fontSize: 13, fontWeight: FontWeight.w600)),
+                  ]
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Esta evaluación es orientativa. El veterinario determinará el diagnóstico y los pasos a seguir.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: Colors.black54),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () {
+                Navigator.pop(context); // Cierra el diálogo
+                Navigator.pop(context); // Cierra la pantalla de triaje y vuelve a pacientes
+              },
+              child: const Text('Entendido, volver a inicio'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        
+        if (!_hasPendingChanges() || _submitting) {
+          Navigator.pop(context);
+          return;
+        }
+
+        final discard = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('¿Descartar reporte?'),
+            content: const Text('Tienes un triaje en progreso. Si sales ahora, los datos y fotografías se perderán.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+                onPressed: () => Navigator.pop(context, true), 
+                child: const Text('Descartar')
+              ),
+            ],
+          ),
+        );
+
+        if (discard == true && context.mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
         appBar: AppBar(title: Text('Triaje · ${widget.patient.nombre}')),
         body: Form(
           key: _formKey,
@@ -151,7 +274,10 @@ class _TriageScreenState extends State<TriageScreen> {
               const SizedBox(height: 16),
               _QuestionCard(
                 number: '1', title: '¿Hay sangrado activo?',
-                child: _yesNo(value: _activeBleeding, onChanged: (value) => setState(() => _activeBleeding = value)),
+                child: _yesNo(
+                  value: _activeBleeding, 
+                  onChanged: (value) => setState(() => _activeBleeding = value),
+                ),
               ),
               _QuestionCard(
                 number: '2', title: '¿Cómo está su apetito?',
@@ -183,9 +309,13 @@ class _TriageScreenState extends State<TriageScreen> {
                       return parsed == null || parsed < 30 || parsed > 45 ? 'Ingresa una temperatura entre 30 y 45 °C.' : null;
                     },
                   ),
-                  const SizedBox(height: 12),
-                  const Text('¿Muestra dolor al tocar la zona?'),
-                  _yesNo(value: _painOnTouch, onChanged: (value) => setState(() => _painOnTouch = value)),
+                  const SizedBox(height: 16),
+                  const Text('¿Muestra dolor al tocar la zona afectada?'),
+                  const SizedBox(height: 8),
+                  _yesNo(
+                    value: _painOnTouch, 
+                    onChanged: (value) => setState(() => _painOnTouch = value),
+                  ),
                 ]),
               ),
               _QuestionCard(
@@ -221,7 +351,9 @@ class _TriageScreenState extends State<TriageScreen> {
             ],
           ),
         ),
-      );
+      ),
+    );
+  }
 
   Widget _intro(BuildContext context) => Container(
         padding: const EdgeInsets.all(16),
@@ -237,17 +369,64 @@ class _TriageScreenState extends State<TriageScreen> {
         ]),
       );
 
-  Widget _yesNo({required bool? value, required ValueChanged<bool> onChanged}) => Row(children: [
-        Expanded(child: _selectTile(label: 'Sí', selected: value == true, onTap: () => onChanged(true))),
-        const SizedBox(width: 10),
-        Expanded(child: _selectTile(label: 'No', selected: value == false, onTap: () => onChanged(false))),
-      ]);
+  Widget _yesNo({required bool? value, required ValueChanged<bool> onChanged}) {
+    return FormField<bool>(
+      initialValue: value,
+      validator: (val) => val == null ? 'Por favor selecciona una opción.' : null,
+      builder: (state) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Expanded(child: _selectTile(label: 'Sí', selected: state.value == true, onTap: () { state.didChange(true); onChanged(true); })),
+              const SizedBox(width: 10),
+              Expanded(child: _selectTile(label: 'No', selected: state.value == false, onTap: () { state.didChange(false); onChanged(false); })),
+            ]),
+            if (state.hasError)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, left: 4),
+                child: Text(state.errorText!, style: TextStyle(color: Colors.red.shade800, fontSize: 12)),
+              ),
+          ],
+        );
+      },
+    );
+  }
 
-  Widget _choiceGroup<T extends Object>({required T? value, required Map<T, String> values, required ValueChanged<T> onChanged}) =>
-      Column(children: values.entries.map((entry) => RadioListTile<T>(
-        value: entry.key, groupValue: value, onChanged: (selected) { if (selected != null) onChanged(selected); },
-        title: Text(entry.value, style: const TextStyle(fontSize: 14)), contentPadding: EdgeInsets.zero, dense: true,
-      )).toList());
+  Widget _choiceGroup<T extends Object>({required T? value, required Map<T, String> values, required ValueChanged<T> onChanged}) {
+    return FormField<T>(
+      initialValue: value,
+      validator: (val) => val == null ? 'Por favor selecciona una opción.' : null,
+      builder: (state) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
+              children: values.entries.map((entry) => RadioListTile<T>(
+                value: entry.key, 
+                groupValue: state.value, 
+                onChanged: (selected) { 
+                  if (selected != null) {
+                    state.didChange(selected);
+                    onChanged(selected); 
+                  }
+                },
+                title: Text(entry.value, style: const TextStyle(fontSize: 14)), 
+                contentPadding: EdgeInsets.zero, 
+                dense: true,
+                activeColor: const Color(0xFF32694D),
+              )).toList()
+            ),
+            if (state.hasError)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, left: 4),
+                child: Text(state.errorText!, style: TextStyle(color: Colors.red.shade800, fontSize: 12)),
+              ),
+          ],
+        );
+      },
+    );
+  }
 
   Widget _selectTile({required String label, required bool selected, required VoidCallback onTap}) =>
       InkWell(onTap: onTap, borderRadius: BorderRadius.circular(9), child: Container(

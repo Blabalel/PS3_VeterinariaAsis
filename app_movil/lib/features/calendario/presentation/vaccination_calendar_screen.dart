@@ -18,7 +18,7 @@ class VaccinationCalendarScreen extends StatefulWidget {
 
 class _VaccinationCalendarScreenState extends State<VaccinationCalendarScreen> {
   final _api = ApiClient();
-  late Future<Map<DateTime, List<_VaccinationEvent>>> _eventsFuture;
+  late Future< Map< DateTime, List< _VaccinationEvent > > > _eventsFuture;
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
 
@@ -30,25 +30,36 @@ class _VaccinationCalendarScreenState extends State<VaccinationCalendarScreen> {
 
   DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
 
-  Future<Map<DateTime, List<_VaccinationEvent>>> _loadEvents() async {
+  Future< Map< DateTime, List< _VaccinationEvent > > > _loadEvents() async {
     await initializeDateFormatting('es_ES');
     final response = await _api.get(ApiConstants.vaccinations(widget.patient.id));
+    
     final records = response is List
         ? response
         : response is Map && response['items'] is List
             ? response['items'] as List
             : <dynamic>[];
+            
     final events = <DateTime, List<_VaccinationEvent>>{};
-    for (final record in records.whereType<Map>()) {
+    final today = _dateOnly(DateTime.now());
+
+    for (final record in records.whereType()) {
       final json = Map<String, dynamic>.from(record);
       final rawDate = json['fecha_programada'] ?? json['fecha_vacunacion'] ?? json['fecha'];
       final date = rawDate == null ? null : DateTime.tryParse(rawDate.toString());
       if (date == null) continue;
+      
       final key = _dateOnly(date);
-      if (key.isBefore(_dateOnly(DateTime.now()))) continue;
+      
+      String estado = (json['estado'] ?? '').toString().toLowerCase();
+      if (estado != 'aplicada') {
+        estado = key.isBefore(today) ? 'vencida' : 'programada';
+      }
+
       events.putIfAbsent(key, () => []).add(_VaccinationEvent(
             title: (json['nombre_vacuna'] ?? json['vacuna'] ?? json['nombre'] ?? 'Refuerzo').toString(),
             detail: (json['notas'] ?? json['descripcion'] ?? '').toString(),
+            estado: estado,
           ));
     }
     return events;
@@ -60,7 +71,7 @@ class _VaccinationCalendarScreenState extends State<VaccinationCalendarScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: Text('Vacunas · ${widget.patient.nombre}')),
-        body: FutureBuilder<Map<DateTime, List<_VaccinationEvent>>>(
+        body: FutureBuilder< Map< DateTime, List< _VaccinationEvent > > >(
           future: _eventsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
@@ -72,7 +83,7 @@ class _VaccinationCalendarScreenState extends State<VaccinationCalendarScreen> {
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.event_busy_outlined, size: 42),
                   const SizedBox(height: 10),
-                  const Text('No se pudo cargar el calendario de vacunación', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700)),
+                  const Text('No se pudo cargar el calendario', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
                   Text(snapshot.error.toString(), textAlign: TextAlign.center),
                   const SizedBox(height: 12),
@@ -83,12 +94,14 @@ class _VaccinationCalendarScreenState extends State<VaccinationCalendarScreen> {
 
             final events = snapshot.data ?? {};
             final selectedEvents = _eventsForDay(events, _selectedDay);
+            
             return Column(children: [
+              _buildLegend(),
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
                 child: TableCalendar<_VaccinationEvent>(
                   locale: 'es_ES',
-                  firstDay: DateTime.utc(DateTime.now().year - 2, 1, 1),
+                  firstDay: DateTime.utc(DateTime.now().year - 5, 1, 1),
                   lastDay: DateTime.utc(DateTime.now().year + 5, 12, 31),
                   focusedDay: _focusedDay,
                   selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
@@ -103,18 +116,36 @@ class _VaccinationCalendarScreenState extends State<VaccinationCalendarScreen> {
                   calendarStyle: const CalendarStyle(
                     todayDecoration: BoxDecoration(color: Color(0xFFB8CFBC), shape: BoxShape.circle),
                     selectedDecoration: BoxDecoration(color: Color(0xFF32694D), shape: BoxShape.circle),
-                    markerDecoration: BoxDecoration(color: Color(0xFFD79B39), shape: BoxShape.circle),
                     outsideDaysVisible: false,
                   ),
                   headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true),
+                  calendarBuilders: CalendarBuilders(
+                    markerBuilder: (context, date, dayEvents) {
+                      if (dayEvents.isEmpty) return const SizedBox();
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: dayEvents.map((event) {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: event.color,
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
                 ),
               ),
               const Divider(height: 1),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
                 child: Row(children: [
-                  Expanded(child: Text('Refuerzos · ${_formatDate(_selectedDay)}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
-                  Text('${events.values.fold<int>(0, (sum, items) => sum + items.length)} programados', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                  Expanded(child: Text('Registros · ${_formatDate(_selectedDay)}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
+                  Text('${selectedEvents.length} eventos', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
                 ]),
               ),
               Expanded(
@@ -124,22 +155,69 @@ class _VaccinationCalendarScreenState extends State<VaccinationCalendarScreen> {
                         child: Column(mainAxisSize: MainAxisSize.min, children: [
                           const Icon(Icons.event_available_outlined, size: 38, color: Colors.black38),
                           const SizedBox(height: 8),
-                          Text('No hay refuerzos para ${_formatDate(_selectedDay)}.', textAlign: TextAlign.center),
+                          Text('No hay registros para ${_formatDate(_selectedDay)}.', textAlign: TextAlign.center),
                         ]),
                       ))
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 2, 16, 20),
                         itemCount: selectedEvents.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) => Card(child: ListTile(
-                          leading: const CircleAvatar(backgroundColor: Color(0xFFEAF2EB), child: Icon(Icons.vaccines_outlined, color: Color(0xFF32694D))),
-                          title: Text(selectedEvents[index].title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: selectedEvents[index].detail.isEmpty ? null : Text(selectedEvents[index].detail),
-                        )),
+                        itemBuilder: (context, index) {
+                          final event = selectedEvents[index];
+                          return Card(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: event.color.withOpacity(0.3)),
+                            ),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: event.color.withOpacity(0.12), 
+                                child: Icon(Icons.vaccines_outlined, color: event.color)
+                              ),
+                              title: Text(event.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                              subtitle: event.detail.isEmpty ? null : Text(event.detail),
+                              trailing: _statusChip(event),
+                            )
+                          );
+                        },
                       ),
               ),
             ]);
           },
+        ),
+      );
+
+  Widget _buildLegend() => Padding(
+        padding: const EdgeInsets.only(top: 12, bottom: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _legendItem(const Color(0xFF4E875F), 'Aplicada'),
+            const SizedBox(width: 16),
+            _legendItem(const Color(0xFFD79B39), 'Próxima'),
+            const SizedBox(width: 16),
+            _legendItem(const Color(0xFFCA5C4A), 'Vencida'),
+          ],
+        ),
+      );
+
+  Widget _legendItem(Color color, String label) => Row(
+        children: [
+          Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.black87)),
+        ],
+      );
+
+  Widget _statusChip(_VaccinationEvent event) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: event.color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          event.estado.toUpperCase(),
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: event.color),
         ),
       );
 
@@ -148,7 +226,16 @@ class _VaccinationCalendarScreenState extends State<VaccinationCalendarScreen> {
 }
 
 class _VaccinationEvent {
-  const _VaccinationEvent({required this.title, required this.detail});
+  const _VaccinationEvent({required this.title, required this.detail, required this.estado});
   final String title;
   final String detail;
+  final String estado;
+
+  Color get color {
+    switch (estado) {
+      case 'aplicada': return const Color(0xFF4E875F); // Verde
+      case 'vencida': return const Color(0xFFCA5C4A); // Rojo
+      default: return const Color(0xFFD79B39); // Ámbar (programada)
+    }
+  }
 }

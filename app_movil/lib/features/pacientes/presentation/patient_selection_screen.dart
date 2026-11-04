@@ -29,16 +29,43 @@ class _PatientSelectionScreenState extends State<PatientSelectionScreen> {
   }
 
   Future<List<Paciente>> _loadPatients() async {
-    final result = await _api.get(
-      ApiConstants.patients,
-      query: {'tutor_id': widget.tutorId.toString(), 'skip': '0', 'limit': '200'},
-    );
-    if (result is! List) throw const FormatException('Respuesta de pacientes inválida.');
-    return result.whereType<Map>().map((rawPatient) {
-      final patient = Map<String, dynamic>.from(rawPatient);
-      final ownerId = int.tryParse(patient['tutor_id'].toString());
-      return (ownerId == widget.tutorId) ? Paciente.fromJson(patient) : null;
-    }).whereType<Paciente>().toList();
+    try {
+      final result = await _api.get(
+        ApiConstants.patients,
+        query: {'tutor_id': widget.tutorId.toString(), 'skip': '0', 'limit': '200'},
+      );
+      
+      if (result is! List) throw const FormatException('Respuesta de pacientes inválida.');
+      
+      return result.whereType().map((rawPatient) {
+        final patient = Map<String, dynamic>.from(rawPatient);
+        final ownerId = int.tryParse(patient['tutor_id'].toString());
+        return (ownerId == widget.tutorId) ? Paciente.fromJson(patient) : null;
+      }).whereType<Paciente>().toList();
+      
+    } catch (e) {
+      final errorStr = e.toString().toLowerCase();
+      // Detectamos expiración de sesión (401 Unauthorized)
+      if (errorStr.contains('401') || errorStr.contains('unauthorized')) {
+        await SessionStore().clear();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Tu sesión ha expirado. Por favor, ingresa de nuevo.'),
+              backgroundColor: Colors.orange.shade800,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+            (_) => false,
+          );
+        }
+        throw const FormatException('Sesión expirada.');
+      }
+      // Error normal de red o formato
+      throw FormatException(e.toString().replaceAll('Exception:', '').trim());
+    }
   }
 
   void _openTriage(Paciente patient) {
@@ -66,9 +93,11 @@ class _PatientSelectionScreenState extends State<PatientSelectionScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    
     // Clear credentials before returning to the login screen.
     await SessionStore().clear();
     if (!mounted) return;
+    
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
       (_) => false,
@@ -88,7 +117,14 @@ class _PatientSelectionScreenState extends State<PatientSelectionScreen> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
-              return _LoadError(message: snapshot.error.toString(), onRetry: () => setState(() => _patients = _loadPatients()));
+              // No mostramos error si fue redireccionado por sesión expirada
+              if (snapshot.error.toString().contains('Sesión expirada')) {
+                return const SizedBox.shrink();
+              }
+              return _LoadError(
+                message: snapshot.error.toString(), 
+                onRetry: () => setState(() => _patients = _loadPatients())
+              );
             }
             final patients = snapshot.data ?? const <Paciente>[];
             if (patients.isEmpty) {

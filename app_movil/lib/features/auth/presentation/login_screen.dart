@@ -40,27 +40,34 @@ class _LoginScreenState extends State<LoginScreen> {
         },
         authenticated: false,
       );
+      
       if (response is! Map<String, dynamic>) {
         throw const FormatException('Respuesta de autenticación inválida.');
       }
+      
       final user = response['usuario'] ?? response['user'] ?? response;
       if (user is! Map) {
         throw const FormatException('La respuesta no incluye los datos del tutor.');
       }
+      
       final token = (response['access_token'] ??
               response['token'] ??
               response['accessToken'])
           ?.toString();
+          
       final tutorId = int.tryParse(
         (user['tutor_id'] ?? user['id'] ?? response['tutor_id']).toString(),
       );
+      
       if (token == null || token.isEmpty || tutorId == null) {
         throw const FormatException(
           'La respuesta debe incluir access_token y el id del tutor.',
         );
       }
+      
       await _session.save(token: token, tutorId: tutorId);
       if (!mounted) return;
+      
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => PatientSelectionScreen(tutorId: tutorId),
@@ -68,8 +75,23 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } catch (error) {
       if (!mounted) return;
+      
+      // Manejo de errores preciso para el usuario
+      String errorMessage = 'Verifica tu conexión a internet e intenta de nuevo.';
+      final errorStr = error.toString().toLowerCase();
+      
+      if (errorStr.contains('401') || errorStr.contains('unauthorized') || errorStr.contains('credenciales')) {
+        errorMessage = 'Correo o contraseña incorrectos.';
+      } else if (errorStr.contains('exception:')) {
+        errorMessage = error.toString().replaceAll('Exception:', '').trim();
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo iniciar sesión: $error')),
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red.shade800,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
