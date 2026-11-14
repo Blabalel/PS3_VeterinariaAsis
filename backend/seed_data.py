@@ -11,7 +11,8 @@ paciente del tutor) no lo duplica.
 
 from datetime import date, datetime, timedelta
 
-from app.db.database import SessionLocal, engine, ensure_schema
+from app.db.database import SessionLocal
+from app.db.init_schema import initialize_schema
 from app.models import models
 from app.core.security import hash_password
 from app.services.triaje_service import calcular_triaje
@@ -233,8 +234,7 @@ def obtener_o_crear_usuario(db, datos, password="123456"):
 
 
 def main():
-    models.Base.metadata.create_all(bind=engine)
-    ensure_schema()
+    initialize_schema()
     db = SessionLocal()
     creados = {"usuarios": 0, "pacientes": 0, "triajes": 0, "vacunas": 0}
 

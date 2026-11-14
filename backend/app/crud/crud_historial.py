@@ -1,12 +1,12 @@
 from sqlalchemy.orm import Session
 from app.models import models
 from app.schemas import schemas
+from app.services.triage_photos import photo_url
 
 def crear_historial(db: Session, historial: schemas.HistorialCreate):
     db_historial = models.HistorialClinico(**historial.model_dump())
     db.add(db_historial)
-    db.commit()
-    db.refresh(db_historial)
+    db.flush()
     return db_historial
 
 def obtener_historial_por_paciente(db: Session, paciente_id: int):
@@ -30,7 +30,7 @@ def obtener_pendientes(db: Session):
             "puntaje_riesgo": caso.puntaje_riesgo or 0,
             "nivel_gravedad": caso.nivel_gravedad or "sin clasificar",
             "fecha_consulta": caso.fecha_consulta,
-            "foto_url": caso.foto_url,
+            "foto_url": photo_url(caso),
             "notas_veterinario": caso.notas_veterinario,
             "estado": caso.estado,
             "revisado": caso.revisado

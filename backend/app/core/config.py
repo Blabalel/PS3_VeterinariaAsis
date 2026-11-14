@@ -12,8 +12,8 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     model_config = SettingsConfigDict(
-        # Absolute path so the .env is found no matter the current directory.
-        env_file=str(BACKEND_DIR / ".env"),
+        # Read the project-root .env for local execution. Runtime variables take precedence.
+        env_file=BACKEND_DIR.parent / ".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-san-francisco-change-me"
     token_ttl_seconds: int = 7 * 24 * 60 * 60  # 7 days
     pbkdf2_iterations: int = 120_000
+
+    # Private object storage. Local files are supported for development and older records.
+    s3_bucket: str | None = None
+    s3_endpoint_url: str | None = None
+    initialize_db_on_start: bool = True
 
     # Paths
     @property

@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_current_user, require_roles, paciente_detalle
+from app.api.deps import get_db, get_current_user, require_roles, paciente_detalle, paciente_accesible
 from app.schemas import schemas
 from app.crud import crud_paciente
 from app.models import models
@@ -39,7 +39,7 @@ def registrar_con_tutor(
 def registrar_paciente(
     paciente: schemas.PacienteCreate,
     db: Session = Depends(get_db),
-    _: models.Usuario = Depends(get_current_user),
+    _: models.Usuario = Depends(require_roles("veterinario", "admin")),
 ):
     return crud_paciente.crear_paciente(db=db, paciente=paciente)
 
@@ -50,10 +50,14 @@ def listar_pacientes(
     skip: int = 0,
     limit: int = 500,
     db: Session = Depends(get_db),
-    _: models.Usuario = Depends(get_current_user),
+    usuario: models.Usuario = Depends(require_roles("tutor", "veterinario", "admin")),
 ):
     query = db.query(models.Paciente)
-    if tutor_id:
+    if usuario.rol == "tutor":
+        if tutor_id is not None and tutor_id != usuario.id:
+            raise HTTPException(status_code=403, detail="No tienes acceso a los pacientes de otro tutor.")
+        tutor_id = usuario.id
+    if tutor_id is not None:
         query = query.filter(models.Paciente.tutor_id == tutor_id)
     pacientes = query.offset(skip).limit(limit).all()
 
@@ -77,12 +81,9 @@ def listar_pacientes(
 def obtener_paciente(
     paciente_id: int,
     db: Session = Depends(get_db),
-    _: models.Usuario = Depends(get_current_user),
+    usuario: models.Usuario = Depends(get_current_user),
 ):
-    paciente = crud_paciente.obtener_paciente(db, paciente_id)
-    if not paciente:
-        raise HTTPException(status_code=404, detail="Paciente no encontrado")
-    return paciente_detalle(db, paciente)
+    return paciente_detalle(db, paciente_accesible(db, paciente_id, usuario))
 
 
 @router.patch("/pacientes/{paciente_id}")

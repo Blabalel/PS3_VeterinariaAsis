@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: veterinaria-esquema
+  namespace: veterinaria
+spec:
+  backoffLimit: 4
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      containers:
+        - name: schema
+          image: veterinaria-asis:local
+          imagePullPolicy: IfNotPresent
+          command: [python, -m, app.db.init_schema]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: veterinaria-api
+                  key: DATABASE_URL

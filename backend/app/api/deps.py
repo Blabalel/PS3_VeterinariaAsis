@@ -66,6 +66,18 @@ def require_roles(*roles: str):
     return dependency
 
 
+def paciente_accesible(db: Session, paciente_id: int, usuario: models.Usuario) -> models.Paciente:
+    query = db.query(models.Paciente).filter(models.Paciente.id == paciente_id)
+    if usuario.rol == "tutor":
+        query = query.filter(models.Paciente.tutor_id == usuario.id)
+    elif usuario.rol not in {"veterinario", "admin"}:
+        raise HTTPException(status_code=403, detail="No tienes permisos para realizar esta acción.")
+    paciente = query.first()
+    if not paciente:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    return paciente
+
+
 def paciente_detalle(db: Session, paciente: models.Paciente):
     """Construye el diccionario de detalle de paciente con tutor."""
     tutor = db.query(models.Usuario).filter(models.Usuario.id == paciente.tutor_id).first()

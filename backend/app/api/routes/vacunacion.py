@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_current_user, require_roles
+from app.api.deps import get_db, get_current_user, paciente_accesible, require_roles
 from app.schemas import schemas
 from app.crud import crud_vacunacion, crud_paciente
 from app.models import models
@@ -13,7 +13,7 @@ router = APIRouter()
 @router.get("/vacunacion/alertas")
 def listar_alertas_vacunacion(
     db: Session = Depends(get_db),
-    _: models.Usuario = Depends(get_current_user),
+    _: models.Usuario = Depends(require_roles("veterinario", "admin")),
 ):
     return crud_vacunacion.obtener_alertas(db)
 
@@ -22,10 +22,9 @@ def listar_alertas_vacunacion(
 def listar_vacunas(
     paciente_id: int,
     db: Session = Depends(get_db),
-    _: models.Usuario = Depends(get_current_user),
+    usuario: models.Usuario = Depends(get_current_user),
 ):
-    if not crud_paciente.obtener_paciente(db, paciente_id):
-        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    paciente_accesible(db, paciente_id, usuario)
     vacunas = crud_vacunacion.obtener_vacunas_paciente(db, paciente_id)
     return {"items": vacunas}
 

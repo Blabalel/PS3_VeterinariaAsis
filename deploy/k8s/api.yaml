@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: veterinaria-api
+  namespace: veterinaria
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: veterinaria-api
+  template:
+    metadata:
+      labels:
+        app: veterinaria-api
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: veterinaria-asis:local
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: veterinaria-api
+          env:
+            - name: INITIALIZE_DB_ON_START
+              value: "false"
+            - name: S3_BUCKET
+              value: triaje-fotos
+            - name: S3_ENDPOINT_URL
+              value: http://objetos:8333
+            - name: AWS_DEFAULT_REGION
+              value: us-east-1
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            failureThreshold: 15
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            timeoutSeconds: 8
+            periodSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: veterinaria-api
+  namespace: veterinaria
+spec:
+  selector:
+    app: veterinaria-api
+  ports:
+    - port: 8000
+      targetPort: http

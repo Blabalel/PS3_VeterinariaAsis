@@ -24,6 +24,8 @@ import {
   triggerDownload,
 } from '../utils.js';
 import { setRouteSilently } from '../router.js';
+import { apiUrl } from '../api/client.js';
+import { authHeaders } from '../session.js';
 import { reportAge } from '../calendar-model.js';
 import { setDetailDirty, setDetailBusy } from '../utils.js';
 
@@ -73,10 +75,41 @@ function photoMarkup(item) {
   const list = Array.isArray(photos) ? photos : [photos];
   return list.map((photo) => {
     const source = typeof photo === 'string' ? photo : photo?.url ?? photo?.foto_url;
+    if (typeof source === 'string' && /^\/api\/historial\/\d+\/foto$/.test(source)) {
+      return `<div data-private-photo="${escapeHtml(source)}" role="status">Cargando fotografía…</div>`;
+    }
     const url = resolvePhotoUrl(source);
     if (!url) return '';
     return `<a class="case-photo" href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="Fotografía adjunta al reporte"></a>`;
   }).join('');
+}
+
+function loadPrivatePhotos() {
+  const container = $('#detail-content');
+  const targets = container.querySelectorAll('[data-private-photo]');
+  if (!targets.length) return;
+  const controller = new AbortController();
+  const urls = [];
+  container.addEventListener('detail-dismiss', () => {
+    controller.abort();
+    urls.forEach((url) => URL.revokeObjectURL(url));
+  }, { once: true });
+
+  for (const target of targets) {
+    fetch(apiUrl(target.dataset.privatePhoto), {
+      headers: authHeaders(),
+      signal: controller.signal,
+    }).then(async (response) => {
+      if (!response.ok) throw new Error('Fotografía no disponible');
+      const image = await response.blob();
+      if (controller.signal.aborted) return;
+      const url = URL.createObjectURL(image);
+      urls.push(url);
+      target.outerHTML = `<a class="case-photo" href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="Fotografía adjunta al reporte"></a>`;
+    }).catch(() => {
+      if (!controller.signal.aborted) target.textContent = 'No se pudo cargar la fotografía.';
+    });
+  }
 }
 
 function detailBlock(label, value) {
@@ -177,6 +210,7 @@ export function showCaseDetail(item, onReviewed = null) {
     <p class="help-text" id="notes-help">Las notas se guardan al confirmar la revisión del caso.</p><p class="form-error hidden" id="review-error" role="alert"></p><div class="detail-actions"><button class="secondary-button" id="case-history" type="button" aria-expanded="false" aria-controls="case-history-preview">Ver historial</button><button class="secondary-button" id="download-pdf">Descargar Historial Clínico (PDF)</button><button class="primary-button" id="mark-reviewed">Guardar revisión</button></div><section class="hidden" id="case-history-preview" aria-label="Historial del paciente"></section>`;
 
   if (openDetail('Revisar reporte', `CASO #${item.id}`, content) === false) return;
+  loadPrivatePhotos();
   $('#case-history').addEventListener('click', async () => {
     const target = $('#case-history-preview');
     const button = $('#case-history');

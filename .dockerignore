@@ -1,0 +1,12 @@
+**
+!backend/
+!backend/requirements.txt
+!backend/seed_data.py
+!backend/app/
+!backend/app/**
+!frontend/
+!frontend/**
+frontend/tests/
+**/.env*
+**/__pycache__/
+**/*.py[cod]

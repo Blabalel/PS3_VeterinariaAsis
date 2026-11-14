@@ -4,11 +4,11 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 
-# settings ya carga backend/.env mediante pydantic-settings.
+# Settings carga DATABASE_URL del entorno o del .env de la raíz.
 SQLALCHEMY_DATABASE_URL = settings.database_url
 
 # Crear el motor de base de datos
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
 
 # Crear la sesión
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

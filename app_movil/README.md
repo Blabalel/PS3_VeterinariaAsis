@@ -75,7 +75,7 @@ mascotas asociadas; usan el panel web.
 5. Envía el reporte: debe aparecer el nivel de riesgo calculado.
 6. Abre el panel web (`http://127.0.0.1:8000/`), entra como
    `vet@sanfrancisco.bo` / `123456` y verifica que el caso aparece en
-   **Resumen** con la foto en `/dataset/nuevas/...`.
+   **Resumen**. Abre el caso en el panel para comprobar que carga la foto protegida.
 7. En la app, abre el calendario de vacunas de la mascota para ver los
    refuerzos futuros.
 

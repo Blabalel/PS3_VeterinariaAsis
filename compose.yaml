@@ -1,0 +1,56 @@
+services:
+  app:
+    image: veterinaria-asis:local
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg2://veterinaria:veterinaria-local@db:5432/veterinaria
+      SECRET_KEY: "${VET_SECRET_KEY:?Configura la clave local en .env}"
+      S3_BUCKET: triaje-fotos
+      S3_ENDPOINT_URL: http://objetos:8333
+      AWS_ACCESS_KEY_ID: veterinaria-local
+      AWS_SECRET_ACCESS_KEY: "${VET_OBJECT_KEY:?Configura la clave S3 local en .env}"
+      AWS_DEFAULT_REGION: us-east-1
+    ports:
+      - "127.0.0.1:${VET_HTTP_PORT:-8000}:8000"
+    volumes:
+      - triaje_fotos:/app/dataset/nuevas
+    depends_on:
+      db:
+        condition: service_healthy
+      objetos:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/ready', timeout=8).close()"]
+      interval: 5s
+      timeout: 9s
+      retries: 6
+      start_period: 15s
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: veterinaria
+      POSTGRES_USER: veterinaria
+      POSTGRES_PASSWORD: veterinaria-local
+    volumes:
+      - postgres_datos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  objetos:
+    image: chrislusf/seaweedfs:4.53
+    command: ["mini", "-dir=/data", "-ip.bind=0.0.0.0"]
+    environment:
+      S3_BUCKET: triaje-fotos
+      AWS_ACCESS_KEY_ID: veterinaria-local
+      AWS_SECRET_ACCESS_KEY: "${VET_OBJECT_KEY:?Configura la clave S3 local en .env}"
+    volumes:
+      - objetos_datos:/data
+
+volumes:
+  objetos_datos:
+  postgres_datos:
+  triaje_fotos:

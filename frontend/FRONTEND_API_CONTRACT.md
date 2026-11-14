@@ -33,9 +33,9 @@ Todas las rutas del panel requieren `Authorization: Bearer <access_token>`. El t
 - `PATCH /api/vacunacion/{id}` actualiza estado, fecha de aplicación, lote o notas. Si `estado` es `aplicada` y no se envía `fecha_aplicada`, el backend usa la fecha actual.
 - `DELETE /api/vacunacion/{id}` elimina un refuerzo. Las tres operaciones de escritura requieren rol `veterinario` o `admin`.
 - `GET /health` y `GET /api/health` son públicos y responden `{ "status": "ok", "service": "veterinaria-api" }`.
-- `GET /dataset/nuevas/{archivo}` sirve las fotos de triaje subidas. El backend devuelve esa URL en `foto_url` y el panel también acepta rutas antiguas `../dataset/...`.
+- `GET /api/historial/{id}/foto` devuelve la foto indicada en `foto_url`. Requiere el token Bearer de un veterinario, un administrador o el tutor del paciente. El panel consulta la imagen con el token y muestra el archivo devuelto.
 
-La app móvil adjunta el token como `Authorization: Bearer ...` en pacientes, triaje y vacunación. El login es público y es el único endpoint de datos que no requiere token; `/health` también es público.
+La app móvil adjunta el token como `Authorization: Bearer ...` en pacientes, triaje y vacunación. El login es público. `/health` y `/ready` también son públicos.
 
 ## Alta conjunta de paciente y tutor
 

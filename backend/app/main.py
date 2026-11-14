@@ -1,18 +1,22 @@
 """Punto de entrada principal de la API Veterinaria."""
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.db.database import engine, ensure_schema
-from app.models import models
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from botocore.exceptions import BotoCoreError, ClientError
+
+from app.db.database import engine
+from app.db.init_schema import initialize_schema
+from app.services.triage_photos import check_photo_storage
 from app.api import router
 
-# Crea las tablas si no existen
-models.Base.metadata.create_all(bind=engine)
-ensure_schema()
+if settings.initialize_db_on_start:
+    initialize_schema()
 
 app = FastAPI(title="API Veterinaria CNN")
 
@@ -42,21 +46,28 @@ async def avoid_stale_frontend_cache(request, call_next):
 # Rutas de archivos estáticos - frontend está en la raíz del proyecto (dos niveles arriba de app/)
 BASE_DIR = Path(__file__).resolve().parents[2]  # project root (PS3_VeterinariaAsis/)
 FRONTEND_DIR = BASE_DIR / "frontend"
-DATASET_DIR = BASE_DIR / "dataset"
-NUEVAS_DIR = DATASET_DIR / "nuevas"
-NUEVAS_DIR.mkdir(parents=True, exist_ok=True)
-
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="frontend-css")
 app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="frontend-js")
 app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="frontend-assets")
-app.mount("/dataset", StaticFiles(directory=DATASET_DIR), name="dataset")
+app.mount("/vendor", StaticFiles(directory=FRONTEND_DIR / "vendor"), name="frontend-vendor")
 
 
 @app.get("/health", include_in_schema=False)
 @app.get("/api/health", include_in_schema=False)
 def health():
     return {"status": "ok", "service": "veterinaria-api"}
+
+
+@app.get("/ready", include_in_schema=False)
+def ready():
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1 FROM historial_clinico LIMIT 1"))
+        check_photo_storage()
+    except (SQLAlchemyError, BotoCoreError, ClientError) as exc:
+        raise HTTPException(status_code=503, detail="Dependencias no disponibles.") from exc
+    return {"status": "ready"}
 
 
 @app.get("/.well-known/appspecific/com.chrome.devtools.json", include_in_schema=False)

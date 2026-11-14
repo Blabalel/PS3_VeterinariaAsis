@@ -162,6 +162,7 @@ export function openDetail(title, kicker, content) {
   if (!dialog) return;
   $('#detail-title').textContent = title;
   $('#detail-kicker').textContent = kicker;
+  $('#detail-content').dispatchEvent(new Event('detail-dismiss'));
   $('#detail-content').innerHTML = `<div class="dialog-body">${content}</div>`;
   if (!dialog.open) dialog.showModal();
   return true;
@@ -171,7 +172,10 @@ export function closeDetail() {
   if (!confirmDetailClose()) return false;
   detailDirty = false;
   const dialog = $('#detail-dialog');
-  if (dialog?.open) dialog.close();
+  if (dialog?.open) {
+    $('#detail-content').dispatchEvent(new Event('detail-dismiss'));
+    dialog.close();
+  }
   if (returnFocus?.isConnected) returnFocus.focus();
   return true;
 }
